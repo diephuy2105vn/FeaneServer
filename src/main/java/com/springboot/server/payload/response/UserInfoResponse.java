@@ -24,4 +24,5 @@ public class UserInfoResponse {
     private List<ShopResponse> shops;
     private List<String> roles;
     private String accessToken;
+    private String refreshToken;
 }

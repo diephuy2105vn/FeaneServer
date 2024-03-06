@@ -94,7 +94,8 @@ public class AuthController {
                             userDetails.getAvatar(),
                             shopResponses,
                             roles,
-                            accessToken.toString()
+                            accessToken.getValue(),
+                            refreshToken.getValue()
                             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR,"The account is not correct"));
@@ -185,8 +186,8 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshUser(HttpServletRequest request) {
         try {
-            String jwt = jwtUtils.getJwtFromCookies(request);
-            System.out.println("Cookie" + jwt);
+            String jwt = jwtUtils.getTokenFromHeader(request);
+
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
 
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);
@@ -208,7 +209,9 @@ public class AuthController {
                                 userDetails.getAvatar(),
                                 shopResponses,
                                 roles,
-                                accessToken.toString()));
+                                accessToken.toString(),
+                                jwt.toString()));
+
             }
             throw new Exception("Token is not valid");
         } catch (Exception e) {

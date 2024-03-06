@@ -33,21 +33,18 @@ public class JwtUtils {
     @Value("${spring.app.jwtCookieName}")
     private String jwtCookie;
 
-    public String getJwtFromCookies(HttpServletRequest request) {
-            Cookie cookie = WebUtils.getCookie(request, jwtCookie);
-            if (cookie != null) {
-                return cookie.getValue();
-            } else {
-                return null;
-            }
+    public String getTokenFromHeader(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
     }
 
     public ResponseCookie generateRefreshToken(UserDetailsImpl userPrincipal) {
         String jwt = generateTokenFromUsername(userPrincipal.getUsername());
         ResponseCookie cookie = ResponseCookie.from(jwtCookie, jwt).path("/api")
                 .maxAge(30 * 24 * 60 * 60)
-                .secure(false)
-                .sameSite("None")
                 .build();
         return cookie;
     }
