@@ -310,10 +310,7 @@ public class UserController {
             User user = userRepository.findByUsername(userDetails.getUsername())
                     .orElseThrow(() -> new ResourceNotFoundException("Not found user"));
             List<OrderResponse> orderResponses =orderRepository.findAllByUserId(user.getId()).stream()
-                    .map(item -> {
-
-
-                        return new OrderResponse(item);}).toList();
+                    .map(item -> {return new OrderResponse(item);}).toList();
             return  ResponseEntity.ok().body(orderResponses);
         }
         catch (Exception e) {

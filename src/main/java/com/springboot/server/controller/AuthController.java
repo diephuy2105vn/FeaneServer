@@ -55,7 +55,7 @@ public class AuthController {
     private CartRepository cartRepository;
 
     @Autowired
-    private ShopRepository shopRespository;
+    private ShopRepository shopRepository;
     @Autowired
     PasswordEncoder encoder;
     @Autowired
@@ -83,7 +83,7 @@ public class AuthController {
             List<String> roles = userDetails.getAuthorities().stream()
                     .map(item -> item.getAuthority())
                     .collect(Collectors.toList());
-            List<ShopResponse> shopResponses = shopRespository.findAllByUsername(userDetails.getUsername()).stream()
+            List<ShopResponse> shopResponses = shopRepository.findAllByUsername(userDetails.getUsername()).stream()
                     .map(ShopResponse::new).collect(Collectors.toList());
             return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, refreshToken.toString())
                     .body(new UserInfoResponse(userDetails.getId(),
@@ -194,7 +194,7 @@ public class AuthController {
                 List<String> roles = userDetails.getAuthorities().stream()
                         .map(item -> item.getAuthority())
                         .collect(Collectors.toList());
-                List<ShopResponse> shopResponses = shopRespository.findAllByUsername(userDetails.getUsername()).stream()
+                List<ShopResponse> shopResponses = shopRepository.findAllByUsername(userDetails.getUsername()).stream()
                         .map(ShopResponse::new).collect(Collectors.toList());
                 ResponseCookie accessToken = jwtUtils.generateAccessToken(userDetails);
 
