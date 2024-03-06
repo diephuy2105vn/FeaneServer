@@ -17,9 +17,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @RestController
@@ -41,11 +39,24 @@ public class UserController {
     private CartDetailRepository cartDetailRepository;
 
     @Autowired
+    private ShopRepository shopRepository;
+
+    @Autowired
+    private ShopCartRepository shopCartRepository;
+
+
+
+    @Autowired
     private DeliveryAddressRepository deliveryAddressRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
     private UserDetailsImpl getUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return (UserDetailsImpl)authentication.getPrincipal();
     };
+
+
 
     @GetMapping("/search")
     public ResponseEntity<?> findUsers (@RequestParam String q) {
@@ -156,7 +167,7 @@ public class UserController {
             }
             else {
                 User user = userRepository.findByUsername(userDetails.getUsername())
-                        .orElseThrow(() -> new UsernameNotFoundException("User Not Found"));;
+                        .orElseThrow(() -> new UsernameNotFoundException("User Not Found"));
                 newDelAddress.setUser(user);
                 newDelAddress.setIsDefault(false);
                 Long newId = deliveryAddressRepository.save(newDelAddress).getId();
@@ -213,8 +224,9 @@ public class UserController {
             UserDetailsImpl userDetails = getUserDetails();
             Cart cart  = cartRepository.findByUsername(userDetails.getUsername())
                     .orElseThrow(() -> new ResourceNotFoundException("Not found cart"));
-            CartResponse cartResponse = new CartResponse(cart);
-            return ResponseEntity.ok().body(cartResponse);
+            cart.sortShopCarts();
+            List<ShopCartResponse> shopInCartResponses = cart.getShopCarts().stream().map(ShopCartResponse::new).toList();
+            return ResponseEntity.ok().body(shopInCartResponses);
         }
         catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
@@ -229,17 +241,28 @@ public class UserController {
                     .orElseThrow(() -> new ResourceNotFoundException("Not found cart"));
             Product product = productRepository.findById(cartDetailRequest.getProductId())
                     .orElseThrow(() -> new ResourceNotFoundException("Not found product"));
-            CartDetail cartDetail = cartDetailRepository.findByCartIdAndProductId(cart.getId(), cartDetailRequest.getProductId());
-            if(cartDetail != null) {
-                cartDetail.setQuantity(cartDetailRequest.getQuantity());
-                cartDetailRepository.save(cartDetail);
+
+            Shop shop = shopRepository.findByNameAndUsername(product.getShop().getName(), userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+            ShopCart shopCart = shopCartRepository.findByShopIdAndCartId(shop.getId(), cart.getId());
+            if(shopCart != null) {
+                CartDetail cartDetail = cartDetailRepository.findByShopCartIdAndProductId(shopCart.getId(), product.getId());
+                if(cartDetail != null) {
+                    cartDetail.setQuantity(cartDetail.getQuantity() + cartDetailRequest.getQuantity());
+                    cartDetailRepository.save(cartDetail);
+                }
+                else {
+                    CartDetail newCartDetail = new CartDetail(shopCart, product, cartDetailRequest.getQuantity());
+                    cartDetailRepository.save(newCartDetail);
+                }
             }
             else {
-                CartDetail cartDetailNew = new CartDetail(cart, product, cartDetailRequest.getQuantity());
-                cartDetailRepository.save(cartDetailNew);
-                cart.getCartDetails().add(cartDetailNew);
+                ShopCart newShopCart = new ShopCart(cart, shop);
+                shopCartRepository.save(newShopCart);
+                CartDetail newCartDetail = new CartDetail(newShopCart, product, cartDetailRequest.getQuantity());
+                newShopCart.getCartDetails().add(newCartDetail);
+                cartDetailRepository.save(newCartDetail);
             }
-            cartRepository.save(cart);
             return ResponseEntity.ok().body(new MessageResponse(EMessageResponse.MESSAGE_SUCCESS, "Add successfully"));
         }
         catch (Exception e) {
@@ -275,6 +298,23 @@ public class UserController {
             CartDetail cartDetail = cartDetailRepository.findByCartIdAndProductId(cart.getId(), productId);
             cartDetailRepository.delete(cartDetail);
             return ResponseEntity.ok().body(new MessageResponse(EMessageResponse.MESSAGE_SUCCESS, "Delete successfully"));
+        }
+        catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
+    }
+    @GetMapping("/order/all")
+    public ResponseEntity<?> getAllOrder() {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+            User user = userRepository.findByUsername(userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found user"));
+            List<OrderResponse> orderResponses =orderRepository.findAllByUserId(user.getId()).stream()
+                    .map(item -> {
+
+
+                        return new OrderResponse(item);}).toList();
+            return  ResponseEntity.ok().body(orderResponses);
         }
         catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));

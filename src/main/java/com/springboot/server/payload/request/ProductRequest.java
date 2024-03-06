@@ -19,5 +19,4 @@ public class ProductRequest
     private long price;
     private String note;
     private List<MultipartFile> images;
-
 }

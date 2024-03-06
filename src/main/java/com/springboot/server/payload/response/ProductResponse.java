@@ -2,8 +2,6 @@ package com.springboot.server.payload.response;
 
 import com.springboot.server.models.Image;
 import com.springboot.server.models.Product;
-import jakarta.persistence.Column;
-import jakarta.persistence.OneToMany;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -38,7 +36,7 @@ public class ProductResponse {
         this.note = product.getNote();
         this.shop = new ShopResponse(product.getShop());
         this.images = product.getImages().stream()
-                .map(image -> image.getUrl())
+                .map(Image::getUrl)
                 .collect(Collectors.toList());
 
     }

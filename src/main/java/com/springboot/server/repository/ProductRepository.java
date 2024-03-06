@@ -6,12 +6,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p from Product p JOIN p.shop s WHERE s.id = :shopId and p.type = :type")
     List<Product> findAllByType(String type, Pageable pageable);
     @Query("SELECT p from Product p JOIN p.shop s WHERE s.id = :shopId")
     List<Product> findAllByShopId(long shopId, Pageable pageable);
+
+    @Query("SELECT p from Product p JOIN p.shop s WHERE s.id = :shopId and p.id = :productId")
+    Optional<Product> findByShopIdAndProductId(long shopId, long productId);
     @Query("SELECT p from Product p JOIN p.shop s WHERE s.id = :shopId and p.type = :type")
     List<Product> findAllByTypeAndShopId(String type, long shopId, Pageable pageable);
 

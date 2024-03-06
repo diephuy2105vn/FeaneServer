@@ -1,20 +1,25 @@
 package com.springboot.server.controller;
 
-import com.springboot.server.models.Product;
+import com.springboot.server.models.*;
 import com.springboot.server.payload.exception.ResourceNotFoundException;
+import com.springboot.server.payload.request.OrderRequest;
 import com.springboot.server.payload.response.EMessageResponse;
 import com.springboot.server.payload.response.MessageResponse;
 import com.springboot.server.payload.response.ProductResponse;
-import com.springboot.server.repository.ProductRepository;
+import com.springboot.server.repository.*;
+import com.springboot.server.service.UserDetailsImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -24,6 +29,23 @@ public class PublicController {
 
     @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private OrderDetailRepository orderDetailRepository;
+
+    @Autowired
+    private ShopRepository shopRepository;
+
+    private UserDetailsImpl getUserDetails() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return (UserDetailsImpl)authentication.getPrincipal();
+    };
     @GetMapping("/product/all")
     public ResponseEntity<?> getProductAll (@RequestParam(defaultValue = "0") int page,
                                             @RequestParam(defaultValue = "12") int size,
@@ -75,6 +97,38 @@ public class PublicController {
             return ResponseEntity.ok().body(productResponse);
         }
         catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
+    }
+    @PostMapping("/order")
+    public ResponseEntity<?> createOrder(@RequestBody OrderRequest orderRequest) {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+
+            orderRequest.getDetails().forEach(detail -> {
+                Shop shop = shopRepository.findById(detail.getShopId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+                OrderTb order = new OrderTb(orderRequest);
+                order.setShop(shop);
+                if(userDetails != null) {
+                    User user = userRepository.findByUsername(userDetails.getUsername())
+                            .orElseThrow(() -> new ResourceNotFoundException("Not found user"));
+                    order.setUser(user);
+                }
+                orderRepository.save(order);
+                AtomicLong totalPrice = new AtomicLong();
+                detail.getCartDetails().forEach(item -> {
+                    Product product= productRepository.findById(item.getProductId())
+                            .orElseThrow(() -> new ResourceNotFoundException("Not found product"));
+                    OrderDetail orderDetail = new OrderDetail(order, product, item.getQuantity());
+                    orderDetailRepository.save(orderDetail);
+                    totalPrice.addAndGet(orderDetail.getTotalPrice());
+                });
+                order.setTotalPrice(totalPrice.get());
+                orderRepository.save(order);
+            });
+            return ResponseEntity.ok().body(new MessageResponse(EMessageResponse.MESSAGE_SUCCESS, "Create order successfully"));
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
         }
     }

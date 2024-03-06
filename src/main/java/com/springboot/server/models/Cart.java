@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import java.util.Comparator;
 
 import java.util.List;
 
@@ -20,10 +21,13 @@ public class Cart {
     private User user;
 
     @OneToMany(mappedBy = "cart")
-    @OrderBy("createdAt asc")
-    private List<CartDetail> cartDetails;
+    private List<ShopCart> shopCarts;
 
     public Cart (User user) {
         this.user = user;
     }
+    public void sortShopCarts() {
+        shopCarts.sort(Comparator.comparing(s -> s.getCartDetails().get(0).getCreatedAt()));
+    }
+
 }

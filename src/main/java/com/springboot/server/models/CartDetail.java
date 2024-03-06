@@ -19,8 +19,9 @@ public class CartDetail {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cart_id")
-    private Cart cart;
+    @JoinColumn(name = "shopCart_id")
+    private ShopCart shopCart;
+
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")
@@ -30,8 +31,8 @@ public class CartDetail {
     @CreationTimestamp
     private Date createdAt;
 
-    public CartDetail(Cart cart, Product product, int quantity) {
-        this.cart = cart;
+    public CartDetail(ShopCart shopCart, Product product, int quantity) {
+        this.shopCart = shopCart;
         this.product = product;
         this.quantity = quantity;
     }

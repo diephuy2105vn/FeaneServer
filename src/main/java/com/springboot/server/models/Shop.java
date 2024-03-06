@@ -33,6 +33,13 @@ public class Shop {
     @OneToMany(mappedBy = "shop")
     @OrderBy("createdAt")
     private List<Product> products;
+
+    @OneToMany(mappedBy = "shop")
+    private List<ShopCart> shopCarts;
+
+    @OneToMany(mappedBy = "shop")
+    private List<OrderTb> orders;
+
     public Shop (ShopRegisterRequest shopRegisterRequest, User owner) {
         this.name = shopRegisterRequest.getName();
         this.description = shopRegisterRequest.getDescription();

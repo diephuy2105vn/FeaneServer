@@ -40,6 +40,9 @@ public class User {
     @OneToMany(mappedBy = "user")
     private Set<DeliveryAddress> deliveryAddresses = new HashSet<>();
 
+    @OneToMany(mappedBy = "user")
+    private Set<OrderTb> orders;
+
     @ManyToMany(mappedBy = "users")
     private Set<ChatRoom> chatRooms = new HashSet<>();
 

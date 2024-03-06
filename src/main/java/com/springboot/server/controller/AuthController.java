@@ -55,7 +55,7 @@ public class AuthController {
     private CartRepository cartRepository;
 
     @Autowired
-    private ShopRespository shopRespository;
+    private ShopRepository shopRespository;
     @Autowired
     PasswordEncoder encoder;
     @Autowired

@@ -10,7 +10,7 @@ import com.springboot.server.payload.response.EMessageResponse;
 import com.springboot.server.payload.response.MessageResponse;
 import com.springboot.server.payload.response.ShopResponse;
 import com.springboot.server.repository.RoleRepository;
-import com.springboot.server.repository.ShopRespository;
+import com.springboot.server.repository.ShopRepository;
 import com.springboot.server.repository.UserRepository;
 import com.springboot.server.service.UserDetailsImpl;
 import com.springboot.server.service.UserDetailsServiceImpl;
@@ -31,7 +31,7 @@ import java.util.Set;
 @RequestMapping("/api/shop")
 public class ShopController {
     @Autowired
-    private ShopRespository shopRespository;
+    private ShopRepository shopRepository;
     @Autowired
     private  RoleRepository roleRepository;
     @Autowired
@@ -61,7 +61,7 @@ public class ShopController {
                 roles.add(ownRole);
                 user.setRoles(roles);
                 userRepository.save(user);
-                ShopResponse shopResponse = new ShopResponse(shopRespository.save(shops));
+                ShopResponse shopResponse = new ShopResponse(shopRepository.save(shops));
                 return ResponseEntity.ok().body(shopResponse);
             }
             return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, "User not found"));

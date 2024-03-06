@@ -2,17 +2,17 @@ package com.springboot.server.controller;
 
 import com.springboot.server.models.*;
 import com.springboot.server.payload.exception.ResourceNotFoundException;
+import com.springboot.server.payload.request.OrderRequest;
 import com.springboot.server.payload.request.ProductRequest;
-import com.springboot.server.payload.response.EMessageResponse;
-import com.springboot.server.payload.response.MessageResponse;
-import com.springboot.server.payload.response.ProductResponse;
-import com.springboot.server.payload.response.ShopResponse;
+import com.springboot.server.payload.response.*;
 import com.springboot.server.repository.*;
 import com.springboot.server.service.CloudinaryService;
 import com.springboot.server.service.UserDetailsImpl;
 import com.springboot.server.service.UserDetailsServiceImpl;
+import jakarta.persistence.criteria.Predicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -35,7 +35,7 @@ public class OwnController {
     @Autowired
     private UserDetailsServiceImpl userDetailsService;
     @Autowired
-    private ShopRespository shopRespository;
+    private ShopRepository shopRespository;
     @Autowired
     private ProductRepository productRepository;
 
@@ -44,6 +44,12 @@ public class OwnController {
 
     @Autowired
     private ImageRepository imageRepository;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private OrderDetailRepository orderDetailRepository;
 
 
     private UserDetailsImpl getUserDetails() {
@@ -133,7 +139,7 @@ public class OwnController {
             UserDetailsImpl userDetails = getUserDetails();
             Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
                     .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
-            Product product = productRepository.findById(productId)
+            Product product = productRepository.findByShopIdAndProductId(shop.getId(),productId)
                     .orElseThrow(() -> new ResourceNotFoundException("Not found product"));
             ProductResponse productResponse= new ProductResponse(product);
 
@@ -149,7 +155,7 @@ public class OwnController {
 
             Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
                     .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
-            Product product = productRepository.findById(productId)
+            Product product = productRepository.findByShopIdAndProductId(shop.getId(),productId)
                     .orElseThrow(() -> new ResourceNotFoundException("Not found product"));
             product.setName(productRequest.getName());
             product.setDescription(productRequest.getDescription());
@@ -174,12 +180,133 @@ public class OwnController {
     }
     @DeleteMapping("/{shopName}/product/{productId}")
     public ResponseEntity<?> deleteProduct(@PathVariable String shopName, @PathVariable Long productId) {
-        Product product = productRepository.findById(productId)
+        UserDetailsImpl userDetails = getUserDetails();
+
+        Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+
+        Product product = productRepository.findByShopIdAndProductId(shop.getId(),productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Not found product"));
         product.getImages().forEach(image -> {
             cloudinaryService.delete(image.getPublicId());
         });
+
         productRepository.delete(product);
         return ResponseEntity.ok().body(new MessageResponse(EMessageResponse.MESSAGE_SUCCESS, "Delete product successfully"));
     }
+
+    @GetMapping("/{shopName}/order/all")
+    public ResponseEntity<?> getAllOrder (@PathVariable String shopName,
+                                          @RequestParam(defaultValue = "0") int page,
+                                          @RequestParam(defaultValue = "10") int size,
+                                          @RequestParam(required = false) String status,
+                                          @RequestParam(required = false) String sort) {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+            Sort sortSpecification = Sort.unsorted();
+
+            if(sort != null) {
+                switch (sort) {
+                    case "NAME_ASC":
+                        sortSpecification = Sort.by("name").ascending();
+                        break;
+                    case "NAME_DESC":
+                        sortSpecification = Sort.by("name").descending();
+                        break;
+                    case "DATE_ASC":
+                        sortSpecification = Sort.by("createdAt").ascending();
+                        break;
+                    case "DATE_DESC":
+                        sortSpecification = Sort.by("createdAt").descending();
+                        break;
+                    default: break;
+                }
+            }
+            Pageable pageable = PageRequest.of(page, size, sortSpecification);
+            Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+            List<OrderResponse> orderResponses;
+            if(status != null && !status.isEmpty()) {
+                orderResponses = orderRepository.findAllByShopIdAndStatus(shop.getId(), status, pageable).stream()
+                        .map(OrderResponse::new).toList();
+            }
+            else {
+                orderResponses = orderRepository.findAllByShopId(shop.getId(), pageable).stream()
+                        .map(OrderResponse::new).toList();
+            }
+            return ResponseEntity.ok().body(orderResponses);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{shopName}/order/{orderId}")
+    public ResponseEntity<?> getOrder (@PathVariable String shopName, @PathVariable long orderId) {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+
+            Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+            OrderTb orderTb = orderRepository.findByShopIdAndOrderId(shop.getId(), orderId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found order"));
+            OrderResponse orderResponse = new OrderResponse(orderTb);
+            return ResponseEntity.ok().body(orderResponse);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{shopName}/order/{orderId}")
+    public ResponseEntity<?> editOrder (@PathVariable String shopName, @PathVariable long orderId, @RequestBody OrderRequest orderRequest) {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+
+            Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+            OrderTb orderTb = orderRepository.findByShopIdAndOrderId(shop.getId(), orderId).orElseThrow();
+            orderTb.setName(orderRequest.getName());
+            orderTb.setAddress(orderRequest.getAddress());
+            orderTb.setPhoneNumber(orderRequest.getPhoneNumber());
+            orderRepository.save(orderTb);
+            return ResponseEntity.ok().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, "Edit successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{shopName}/order/{orderId}/confirm")
+    public ResponseEntity<?> confirmOrder (@PathVariable String shopName, @PathVariable long orderId) {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+
+            Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+            OrderTb orderTb = orderRepository.findByShopIdAndOrderId(shop.getId(), orderId).orElseThrow();
+            orderTb.setStatus("CONFIRMED");
+            orderRepository.save(orderTb);
+            return ResponseEntity.ok().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, "Confirmed order successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{shopName}/order/{orderId}")
+    public ResponseEntity<?> editOrder (@PathVariable String shopName, @PathVariable long orderId) {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+
+            Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+            OrderTb orderTb = orderRepository.findByShopIdAndOrderId(shop.getId(), orderId).orElseThrow();
+            orderTb.getOrderDetails().forEach(orderDetail -> {
+                orderDetailRepository.delete(orderDetail);
+            });
+            orderRepository.delete(orderTb);
+            return ResponseEntity.ok().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, "Delete successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
+    }
+
+
 }
