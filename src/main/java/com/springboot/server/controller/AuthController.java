@@ -186,6 +186,7 @@ public class AuthController {
     public ResponseEntity<?> refreshUser(HttpServletRequest request) {
         try {
             String jwt = jwtUtils.getJwtFromCookies(request);
+            System.out.println("Cookie" + jwt);
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
 
                 String username = jwtUtils.getUserNameFromJwtToken(jwt);

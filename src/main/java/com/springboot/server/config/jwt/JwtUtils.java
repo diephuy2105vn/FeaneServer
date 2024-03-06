@@ -24,13 +24,13 @@ import io.jsonwebtoken.security.Keys;
 public class JwtUtils {
     private static final Logger logger = LoggerFactory.getLogger(JwtUtils.class);
 
-    @Value("${springboot.app.jwtSecret}")
+    @Value("${spring.app.jwtSecret}")
     private String jwtSecret;
 
-    @Value("${springboot.app.jwtExpirationMs}")
+    @Value("${spring.app.jwtExpirationMs}")
     private int jwtExpirationMs;
 
-    @Value("${springboot.app.jwtCookieName}")
+    @Value("${spring.app.jwtCookieName}")
     private String jwtCookie;
 
     public String getJwtFromCookies(HttpServletRequest request) {
