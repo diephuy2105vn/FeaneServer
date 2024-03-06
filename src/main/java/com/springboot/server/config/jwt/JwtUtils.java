@@ -34,30 +34,27 @@ public class JwtUtils {
     private String jwtCookie;
 
     public String getJwtFromCookies(HttpServletRequest request) {
-        Cookie[] cookies  = request.getCookies();
-        if (cookies.length > 0) {
-            for (Cookie cookie : cookies) {
-                if (cookie.getName().equals(jwtCookie)) {
-                    return cookie.getValue();
-                }
+            Cookie cookie = WebUtils.getCookie(request, jwtCookie);
+            if (cookie != null) {
+                return cookie.getValue();
+            } else {
+                return null;
             }
-            System.out.println("Không có cookie =" + jwtCookie);
-            return null;
-        } else {
-            System.out.println("Không lây được cookies");
-            return null;
-        }
     }
 
     public ResponseCookie generateRefreshToken(UserDetailsImpl userPrincipal) {
         String jwt = generateTokenFromUsername(userPrincipal.getUsername());
-        ResponseCookie cookie = ResponseCookie.from(jwtCookie, jwt).path("/api").maxAge(30 * 24 * 60 * 60).httpOnly(true).build();
+        ResponseCookie cookie = ResponseCookie.from(jwtCookie, jwt).path("/api")
+                .maxAge(30 * 24 * 60 * 60)
+                .build();
         return cookie;
     }
 
     public ResponseCookie generateAccessToken(UserDetailsImpl userPrincipal) {
         String jwt = generateTokenFromUsername(userPrincipal.getUsername());
-        ResponseCookie cookie = ResponseCookie.from(jwtCookie, jwt).maxAge(24 * 60 * 60).build();
+        ResponseCookie cookie = ResponseCookie.from(jwtCookie, jwt)
+                .maxAge(24 * 60 * 60)
+                .build();
         return cookie;
     }
 
