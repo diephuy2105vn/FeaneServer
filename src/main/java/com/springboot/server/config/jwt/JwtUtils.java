@@ -34,10 +34,17 @@ public class JwtUtils {
     private String jwtCookie;
 
     public String getJwtFromCookies(HttpServletRequest request) {
-        Cookie cookie = WebUtils.getCookie(request, jwtCookie);
-        if (cookie != null) {
-            return cookie.getValue();
+        Cookie[] cookies  = request.getCookies();
+        if (cookies.length > 0) {
+            for (Cookie cookie : cookies) {
+                if (cookie.getName().equals(jwtCookie)) {
+                    return cookie.getValue();
+                }
+            }
+            System.out.println("Không có cookie =" + jwtCookie);
+            return null;
         } else {
+            System.out.println("Không lây được cookies");
             return null;
         }
     }
