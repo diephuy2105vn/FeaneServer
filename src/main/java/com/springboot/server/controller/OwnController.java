@@ -94,8 +94,8 @@ public class OwnController {
     }
     @GetMapping("/{shopName}/product/all")
     public ResponseEntity<?> getProductAll (@PathVariable String shopName,
-                                            @RequestParam(defaultValue = "0") int page,
-                                            @RequestParam(defaultValue = "10") int size,
+                                            @RequestParam(defaultValue = "1") int page,
+                                            @RequestParam(defaultValue = "12") int size,
                                             @RequestParam(required = false) List<String> types,
                                             @RequestParam(required = false) String sort,
                                             @RequestParam(required = false) String q) {
@@ -106,7 +106,7 @@ public class OwnController {
             AtomicInteger totalProduct = new AtomicInteger();
             List<ProductResponse> productResponses;
             if(q != null && !q.isEmpty()) {
-                Pageable pageable = PageRequest.of(page, size);
+                Pageable pageable = PageRequest.of(page - 1, size);
                 totalProduct.set(productRepository.countByShopIdAndNameContaining(shop.getId(), q));
                 productResponses =  productRepository.findAllByShopIdAndNameContaining(shop.getId(), q, pageable).stream()
                         .map(ProductResponse::new)
@@ -132,7 +132,7 @@ public class OwnController {
                     default: break;
                 }
             }
-            Pageable pageable = PageRequest.of(page, size, sortSpecification);
+            Pageable pageable = PageRequest.of(page - 1, size, sortSpecification);
             if(types != null && !types.isEmpty() ) {
                 productResponses = new ArrayList<>();
                 types.forEach(type ->{
@@ -220,8 +220,8 @@ public class OwnController {
 
     @GetMapping("/{shopName}/order/all")
     public ResponseEntity<?> getAllOrder (@PathVariable String shopName,
-                                          @RequestParam(defaultValue = "0") int page,
-                                          @RequestParam(defaultValue = "10") int size,
+                                          @RequestParam(defaultValue = "1") int page,
+                                          @RequestParam(defaultValue = "12") int size,
                                           @RequestParam(required = false) String status,
                                           @RequestParam(required = false) String sort,
                                           @RequestParam(required = false, defaultValue = "ALL") String timeFrame) {
@@ -246,7 +246,7 @@ public class OwnController {
                     default: break;
                 }
             }
-            Pageable pageable = PageRequest.of(page, size, sortSpecification);
+            Pageable pageable = PageRequest.of(page - 1, size, sortSpecification);
             Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
                     .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
             List<OrderResponse> orderResponses;
