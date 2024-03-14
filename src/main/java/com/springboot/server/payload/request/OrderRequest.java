@@ -14,4 +14,5 @@ public class OrderRequest {
     private String address;
     private String phoneNumber;
     private List<OrderDetailRequest> details;
+    private Boolean orderByCart;
 }

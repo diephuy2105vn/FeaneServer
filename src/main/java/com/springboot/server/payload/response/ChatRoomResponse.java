@@ -30,7 +30,7 @@ public class ChatRoomResponse {
                 .map(item -> new UserResponse(item.getId(), item.getUsername(), item.getName(), item.getAvatar()))
                 .collect(Collectors.toSet());
         List<ChatMessageResponse> chatMessageResponses = chatRoom.getMessages().stream()
-                .map(item -> new ChatMessageResponse(item)).collect(Collectors.toList());
+                .map(ChatMessageResponse::new).collect(Collectors.toList());
         this.id = chatRoom.getId();
         this.sender = new UserResponse(userLogged.getId(), userLogged.getUsername(), userLogged.getName(), userLogged.getAvatar());
         this.receivers = receivers;

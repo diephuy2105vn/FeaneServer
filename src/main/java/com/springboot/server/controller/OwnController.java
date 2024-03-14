@@ -22,7 +22,12 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @RestController
@@ -92,46 +97,64 @@ public class OwnController {
                                             @RequestParam(defaultValue = "0") int page,
                                             @RequestParam(defaultValue = "10") int size,
                                             @RequestParam(required = false) List<String> types,
-                                            @RequestParam(required = false) String sort) {
-        UserDetailsImpl userDetails = getUserDetails();
+                                            @RequestParam(required = false) String sort,
+                                            @RequestParam(required = false) String q) {
+        try {
+            UserDetailsImpl userDetails = getUserDetails();
+            Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
+                    .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
+            AtomicInteger totalProduct = new AtomicInteger();
+            List<ProductResponse> productResponses;
+            if(q != null && !q.isEmpty()) {
+                Pageable pageable = PageRequest.of(page, size);
+                totalProduct.set(productRepository.countByShopIdAndNameContaining(shop.getId(), q));
+                productResponses =  productRepository.findAllByShopIdAndNameContaining(shop.getId(), q, pageable).stream()
+                        .map(ProductResponse::new)
+                        .toList();
 
-        Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
-                .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
-        Sort sortSpecification = Sort.unsorted();
-        if(sort != null) {
-            switch (sort) {
-                case "NAME_ASC":
-                    sortSpecification = Sort.by("name").ascending();
-                    break;
-                case "NAME_DESC":
-                    sortSpecification = Sort.by("name").descending();
-                    break;
-                case "PRICE_ASC":
-                    sortSpecification = Sort.by("price").ascending();
-                    break;
-                case "PRICE_DESC":
-                    sortSpecification = Sort.by("price").descending();
-                    break;
-                default: break;
+                return ResponseEntity.ok().body(productResponses);
             }
-        }
-        Pageable pageable = PageRequest.of(page, size, sortSpecification);
-        List<ProductResponse> productResponses;
-        if(types != null && !types.isEmpty() ) {
-            productResponses = new ArrayList<>();
-            types.forEach(type ->{
-                List<ProductResponse> products =  productRepository.findAllByTypeAndShopId(type, shop.getId(), pageable).stream()
+            Sort sortSpecification = Sort.unsorted();
+            if(sort != null) {
+                switch (sort) {
+                    case "NAME_ASC":
+                        sortSpecification = Sort.by("name").ascending();
+                        break;
+                    case "NAME_DESC":
+                        sortSpecification = Sort.by("name").descending();
+                        break;
+                    case "PRICE_ASC":
+                        sortSpecification = Sort.by("price").ascending();
+                        break;
+                    case "PRICE_DESC":
+                        sortSpecification = Sort.by("price").descending();
+                        break;
+                    default: break;
+                }
+            }
+            Pageable pageable = PageRequest.of(page, size, sortSpecification);
+            if(types != null && !types.isEmpty() ) {
+                productResponses = new ArrayList<>();
+                types.forEach(type ->{
+                    totalProduct.addAndGet(productRepository.countByShopIdAndType(shop.getId(), type));
+                    List<ProductResponse> products =  productRepository.findAllByShopIdAndType(shop.getId(), type, pageable).stream()
+                            .map(ProductResponse::new)
+                            .toList();
+                    productResponses.addAll(products);
+                });
+            }
+            else {
+                totalProduct.set(productRepository.countByShopId(shop.getId()));
+                productResponses = productRepository.findAllByShopId(shop.getId(), pageable).stream()
                         .map(ProductResponse::new)
                         .collect(Collectors.toList());
-                productResponses.addAll(products);
-            });
+            };
+            ListResponse<ProductResponse> listResponse = new ListResponse<ProductResponse>(totalProduct.get(), productResponses);
+            return ResponseEntity.ok().body(listResponse);
         }
-        else {
-            productResponses = productRepository.findAllByShopId(shop.getId(), pageable).stream()
-                .map(ProductResponse::new)
-                .collect(Collectors.toList());
-        };
-        return ResponseEntity.ok().body(productResponses);
+        catch (Exception e) {
+            return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
+        }
     }
     @GetMapping("/{shopName}/product/{productId}")
     public ResponseEntity<?> getProduct(@PathVariable String shopName, @PathVariable Long productId) {
@@ -200,7 +223,8 @@ public class OwnController {
                                           @RequestParam(defaultValue = "0") int page,
                                           @RequestParam(defaultValue = "10") int size,
                                           @RequestParam(required = false) String status,
-                                          @RequestParam(required = false) String sort) {
+                                          @RequestParam(required = false) String sort,
+                                          @RequestParam(required = false, defaultValue = "ALL") String timeFrame) {
         try {
             UserDetailsImpl userDetails = getUserDetails();
             Sort sortSpecification = Sort.unsorted();
@@ -226,14 +250,54 @@ public class OwnController {
             Shop shop = shopRespository.findByNameAndUsername(shopName, userDetails.getUsername())
                     .orElseThrow(() -> new ResourceNotFoundException("Not found shop"));
             List<OrderResponse> orderResponses;
+            Date now = new Date();
+
+            Date start = shop.getCreatedAt();
+
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(now);
+            calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH));
+            Date end = calendar.getTime();
+
+            switch (timeFrame) {
+                case "WEEK":
+                    // Đặt start và end là ngày đầu tiên và cuối cùng của tuần hiện tại
+                    calendar.setTime(now);
+                    calendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+                    start = calendar.getTime();
+                    calendar.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+                    end = calendar.getTime();
+                    break;
+                case "MONTH":
+                    // Đặt start và end là ngày đầu tiên và cuối cùng của tháng hiện tại
+                    calendar.setTime(now);
+                    calendar.set(Calendar.DAY_OF_MONTH, 1);
+                    start = calendar.getTime();
+                    calendar.set(Calendar.DAY_OF_MONTH, calendar.getActualMaximum(Calendar.DAY_OF_MONTH));
+                    end = calendar.getTime();
+                    break;
+                case "YEAR":
+                    // Đặt start và end là ngày đầu tiên và cuối cùng của năm hiện tại
+                    calendar.setTime(now);
+                    calendar.set(Calendar.DAY_OF_YEAR, 1);
+                    start = calendar.getTime();
+                    calendar.set(Calendar.DAY_OF_YEAR, calendar.getActualMaximum(Calendar.DAY_OF_YEAR));
+                    end = calendar.getTime();
+                    break;
+                default:
+                    break;
+            }
             if(status != null && !status.isEmpty()) {
-                orderResponses = orderRepository.findAllByShopIdAndStatus(shop.getId(), status, pageable).stream()
+                orderResponses = orderRepository
+                        .findAllByShopIdAndStatusAndCreatedAtBetween(shop.getId(), status, start, end, pageable)
+                        .stream()
                         .map(OrderResponse::new).toList();
             }
             else {
-                orderResponses = orderRepository.findAllByShopId(shop.getId(), pageable).stream()
+                orderResponses = orderRepository.findAllByShopIdAndCreatedAtBetween(shop.getId(), start, end, pageable).stream()
                         .map(OrderResponse::new).toList();
             }
+
             return ResponseEntity.ok().body(orderResponses);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(new MessageResponse(EMessageResponse.MESSAGE_ERROR, e.getMessage()));
