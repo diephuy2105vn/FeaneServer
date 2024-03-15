@@ -54,7 +54,11 @@ public class PublicController {
 
     private UserDetailsImpl getUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (UserDetailsImpl)authentication.getPrincipal();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+            return (UserDetailsImpl) authentication.getPrincipal();
+        } else {
+            return null;
+        }
     };
     @GetMapping("/product/all")
     public ResponseEntity<?> getProductAll (

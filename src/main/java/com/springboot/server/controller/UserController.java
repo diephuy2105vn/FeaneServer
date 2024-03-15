@@ -53,7 +53,11 @@ public class UserController {
     private OrderRepository orderRepository;
     private UserDetailsImpl getUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (UserDetailsImpl)authentication.getPrincipal();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+            return (UserDetailsImpl) authentication.getPrincipal();
+        } else {
+            return null;
+        }
     };
 
 

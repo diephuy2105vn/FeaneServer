@@ -38,7 +38,11 @@ public class RoomController {
     private UserRepository userRepository;
     private UserDetailsImpl getUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return (UserDetailsImpl)authentication.getPrincipal();
+        if (authentication != null && authentication.getPrincipal() instanceof UserDetailsImpl) {
+            return (UserDetailsImpl) authentication.getPrincipal();
+        } else {
+            return null;
+        }
     };
     @GetMapping("/getAll")
     public ResponseEntity<?> getAll () {
